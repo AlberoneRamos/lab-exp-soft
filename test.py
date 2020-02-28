@@ -2,8 +2,10 @@ import requests
 import json
 import os
 import errno
+
+from string import Template
 # RQ01 - Sistemas populares são maduros/antigos?
-headers = {"Authorization": "bearer 7c410c852a4a2d8a07f78b9eb497008971b26c43"}
+headers = {"Authorization": ""}
 
 
 def run_query(query):
@@ -13,15 +15,20 @@ def run_query(query):
     else:
         raise Exception("Error {}. {}".format(request.status_code, query))
 
-        
-query = """
+
+query = Template('''
 {
-  search(query: "stars:>100", type: REPOSITORY, last: 100) {
+  search(query: "stars:>100", type: REPOSITORY, first: 100$after) {
+    pageInfo{
+        hasNextPage,
+        endCursor
+    },
     edges {
       node {
         ... on Repository {
           name,
-          createdAt
+          createdAt,
+          nameWithOwner,
           stargazers {
             totalCount
           }
@@ -30,10 +37,9 @@ query = """
     }
   }
 }
-"""
+''')
 
-result = run_query(query)
-print("Result - {}".format(result))
+
 filename = "answers/RQ01-answer.json"
 if not os.path.exists(os.path.dirname(filename)):
   try:
@@ -42,6 +48,18 @@ if not os.path.exists(os.path.dirname(filename)):
     if exc.errno != errno.EEXIST:
       raise
 
-with open(filename, 'w') as output:
-  json.dump(result, output)
+page = 0
+cursor = ""
+
+while page < 10:
+    if page == 0:
+        result = run_query(query.substitute(after=''))
+    else:
+        result = run_query(query.substitute(after=", after: \"%s\"" % cursor))
+    print("Result - {}".format(result))
+    cursor = result["data"]["search"]["pageInfo"]["endCursor"]
+    with open(filename, 'w') as output:
+        json.dump(result, output)
+    page += 1
+
 print("Written to file RQ01-answer.json")
