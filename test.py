@@ -5,7 +5,7 @@ import errno
 
 from string import Template
 # RQ01 - Sistemas populares são maduros/antigos?
-headers = {"Authorization": ""}
+headers = {'Authorization': 'Bearer cd442252f1781447e0547f1c75ebcbfc79900431'}
 
 
 def run_query(query):
@@ -13,25 +13,38 @@ def run_query(query):
     if request.status_code == 200:
         return request.json()
     else:
-        raise Exception("Error {}. {}".format(request.status_code, query))
+        raise Exception('Error {}. {}'.format(request.status_code, query))
 
 
 query = Template('''
 {
-  search(query: "stars:>100", type: REPOSITORY, first: 100$after) {
-    pageInfo{
+  search(query: "stars:>100", type: REPOSITORY, first: 10$after) {
+    pageInfo {
         hasNextPage,
         endCursor
     },
-    edges {
-      node {
-        ... on Repository {
-          name,
-          createdAt,
-          nameWithOwner,
-          stargazers {
-            totalCount
-          }
+    nodes {
+      ... on Repository {
+        nameWithOwner,
+        createdAt,
+        updatedAt,
+        primaryLanguage {
+          name
+        },
+        closedIssues: issues(states: CLOSED) {
+          totalCount
+        },
+        issues {
+          totalCount
+        },
+        stargazers {
+          totalCount
+        },
+        pullRequests (states: MERGED){
+          totalCount
+        },
+        releases {
+          totalCount
         }
       }
     }
@@ -39,27 +52,21 @@ query = Template('''
 }
 ''')
 
+filename = 'output.csv'
+result = run_query(query.substitute(after=''))
+print(result)
+hasNextPage = result['data']['search']['pageInfo']['hasNextPage']
+cursor = result['data']['search']['pageInfo']['endCursor']
+nodes = result['data']['search']['nodes']
 
-filename = "answers/RQ01-answer.json"
-if not os.path.exists(os.path.dirname(filename)):
-  try:
-    os.makedirs(os.path.dirname(filename))
-  except OSError as exc:
-    if exc.errno != errno.EEXIST:
-      raise
+while hasNextPage:
+  result = run_query(query.substitute(after=', after: \"%s\"' % cursor))
+  print('Result - {}'.format(result))
+  cursor = result['data']['search']['pageInfo']['endCursor']
+  hasNextPage = result['data']['search']['pageInfo']['hasNextPage']
+  nodes += result['data']['search']['nodes']
 
-page = 0
-cursor = ""
-
-while page < 10:
-    if page == 0:
-        result = run_query(query.substitute(after=''))
-    else:
-        result = run_query(query.substitute(after=", after: \"%s\"" % cursor))
-    print("Result - {}".format(result))
-    cursor = result["data"]["search"]["pageInfo"]["endCursor"]
-    with open(filename, 'w') as output:
-        json.dump(result, output)
-    page += 1
-
-print("Written to file RQ01-answer.json")
+for node in nodes:
+  with open(filename, 'a') as file:
+    file.write(node['nameWithOwner'] + '\n')
+print('Written to file RQ01-answer.json')
