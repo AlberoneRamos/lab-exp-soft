@@ -2,10 +2,11 @@ import requests
 import json
 import os
 import errno
+import time
 
 from string import Template
 # RQ01 - Sistemas populares são maduros/antigos?
-headers = {'Authorization': 'Bearer cd442252f1781447e0547f1c75ebcbfc79900431'}
+headers = {'Authorization': 'Bearer 40af6ee2619ba845d74c590cf5ad701d1af9e25f'}
 
 
 def run_query(query):
@@ -13,6 +14,9 @@ def run_query(query):
     if request.status_code == 200:
         return request.json()
     else:
+      if request.status_code == 502:
+          return run_query(query)
+      else:
         raise Exception('Error {}. {}'.format(request.status_code, query))
 
 
@@ -52,21 +56,25 @@ query = Template('''
 }
 ''')
 
-filename = 'output.csv'
+filename = 'output.json'
 result = run_query(query.substitute(after=''))
+nodes = []
+
 print(result)
 hasNextPage = result['data']['search']['pageInfo']['hasNextPage']
 cursor = result['data']['search']['pageInfo']['endCursor']
-nodes = result['data']['search']['nodes']
+for node in result['data']['search']['nodes']:
+    nodes.append(node)
 
 while hasNextPage:
   result = run_query(query.substitute(after=', after: \"%s\"' % cursor))
   print('Result - {}'.format(result))
   cursor = result['data']['search']['pageInfo']['endCursor']
   hasNextPage = result['data']['search']['pageInfo']['hasNextPage']
-  nodes += result['data']['search']['nodes']
+  for node in result['data']['search']['nodes']:
+    nodes.append(node)
 
-for node in nodes:
-  with open(filename, 'a') as file:
-    file.write(node['nameWithOwner'] + '\n')
-print('Written to file RQ01-answer.json')
+with open('output.json', 'w') as file:
+  file.write(json.dumps(nodes))
+
+print('Written to file output.json')
