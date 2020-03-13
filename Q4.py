@@ -9,9 +9,9 @@ totalTime = sum(time.mktime(time.strptime(node["updatedAt"], "%Y-%m-%dT%H:%M:%SZ
 
 
 # Tempo médio
-avgTime = (totalTime / len(dataz))
+avgTime = (totalTime / len(data))
 
 # Tempo atual - tempo médio divido por (60 segundos * 60 minutos) = hora
 print("{:.1f}".format((time.time() - avgTime)/ (60 * 60))) 
 
-# Resposta: Foram atualizados há, em média, 1 hora e 30 minutos de agora
+# Resposta: Foram atualizados há, em média, 8 hora e 30 minutos de agora
